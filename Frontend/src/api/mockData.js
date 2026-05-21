@@ -1,4 +1,4 @@
-// Mock data for testing without backend
+// client/src/api/mockData.js
 export const mockPatients = [
   {
     _id: "1",
@@ -7,7 +7,7 @@ export const mockPatients = [
     mobile: "0300-1234567",
     age: "30",
     gender: "male",
-    address: "123 Main Street",
+    address: "123 Main Street, Karachi",
     createdAt: new Date().toISOString(),
   },
   {
@@ -17,7 +17,17 @@ export const mockPatients = [
     mobile: "0300-7654321",
     age: "25",
     gender: "female",
-    address: "456 Oak Avenue",
+    address: "456 Oak Avenue, Lahore",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    _id: "3",
+    name: "Mike Johnson",
+    cnic: "12345-9876543-1",
+    mobile: "0300-9876543",
+    age: "35",
+    gender: "male",
+    address: "789 Pine Road, Islamabad",
     createdAt: new Date().toISOString(),
   },
 ];
@@ -41,6 +51,15 @@ export const mockDoctors = [
     schedule: "Mon-Wed 10AM-4PM",
     status: "active",
   },
+  {
+    _id: "3",
+    name: "Usman Riaz",
+    specialization: "General Physician",
+    phone: "0300-3333333",
+    fee: 600,
+    schedule: "Mon-Sat 9AM-8PM",
+    status: "active",
+  },
 ];
 
 export const mockAppointments = [
@@ -57,6 +76,7 @@ export const mockAppointments = [
     time: "10:00",
     tokenNumber: 101,
     status: "waiting",
+    billed: false,
   },
   {
     _id: "2",
@@ -71,17 +91,33 @@ export const mockAppointments = [
     time: "11:00",
     tokenNumber: 102,
     status: "completed",
+    billed: true,
+  },
+  {
+    _id: "3",
+    patientId: "1",
+    patientName: "John Doe",
+    patientMobile: "0300-1234567",
+    doctorId: "3",
+    doctorName: "Usman Riaz",
+    doctorSpecialization: "General Physician",
+    doctorFee: 600,
+    date: new Date(Date.now() + 86400000).toISOString(), // tomorrow
+    time: "14:00",
+    tokenNumber: 103,
+    status: "waiting",
+    billed: false,
   },
 ];
 
 export const mockBills = [
   {
     _id: "1",
-    patientId: "1",
-    patientName: "John Doe",
-    doctorId: "1",
-    doctorName: "Ahmed Khan",
-    amount: 1000,
+    patientId: "2",
+    patientName: "Jane Smith",
+    doctorId: "2",
+    doctorName: "Fatima Ali",
+    amount: 800,
     receiptNumber: "RCP-001",
     status: "paid",
     date: new Date().toISOString(),

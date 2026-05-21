@@ -25,6 +25,7 @@ export const createAppointment = async (data) => {
     time: data.time,
     tokenNumber: Math.floor(Math.random() * 900) + 100,
     status: "waiting",
+    billed: false,
   };
   mockAppointments.unshift(newAppointment);
   return newAppointment;
@@ -54,4 +55,31 @@ export const getTodayAppointments = async () => {
   await delay(500);
   const today = new Date().toDateString();
   return mockAppointments.filter(a => new Date(a.date).toDateString() === today);
+};
+
+// NEW FUNCTION: Get appointments by patient ID
+export const getAppointmentsByPatient = async (patientId) => {
+  await delay(500);
+  const patientAppointments = mockAppointments.filter(a => a.patientId === patientId);
+  return patientAppointments;
+};
+
+// NEW FUNCTION: Get appointment by ID
+export const getAppointmentById = async (id) => {
+  await delay(300);
+  const appointment = mockAppointments.find(a => a._id === id);
+  if (appointment) return appointment;
+  throw new Error("Appointment not found");
+};
+
+// NEW FUNCTION: Get upcoming appointments for a patient
+export const getUpcomingAppointmentsByPatient = async (patientId) => {
+  await delay(500);
+  const today = new Date();
+  const upcoming = mockAppointments.filter(a => 
+    a.patientId === patientId && 
+    new Date(a.date) >= today &&
+    a.status !== "cancelled"
+  );
+  return upcoming;
 };
