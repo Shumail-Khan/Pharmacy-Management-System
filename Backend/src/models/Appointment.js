@@ -46,18 +46,33 @@ const appointmentSchema = new mongoose.Schema(
       default: 0,
     },
 
-    notes: {
+    remarks: {
       type: String,
+      default: "",
     },
 
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+
+    cancelledAt: {
+      type: Date,
+    },
+
+    completedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+appointmentSchema.index({
+  doctorId: 1,
+  appointmentDate: 1,
+  tokenNumber: 1,
+});
 
 module.exports = mongoose.model("Appointment", appointmentSchema);
