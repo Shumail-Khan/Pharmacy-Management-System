@@ -12,17 +12,20 @@ const patientSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
+      index: true,
     },
 
     mobile: {
       type: String,
       required: true,
+      index: true,
     },
 
     age: {
       type: Number,
       required: true,
       min: 0,
+      max: 120,
     },
 
     gender: {
@@ -33,6 +36,22 @@ const patientSchema = new mongoose.Schema(
 
     address: {
       type: String,
+      trim: true,
+    },
+
+    medicalHistory: {
+      type: String,
+      default: "",
+    },
+
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
   },
   {

@@ -14,21 +14,41 @@ const billingSchema = new mongoose.Schema(
       required: true,
     },
 
+    appointmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Appointment",
+    },
+
     amount: {
       type: Number,
       required: true,
-      min: 0,
     },
 
-    status: {
+    doctorShare: {
+      type: Number,
+      default: 0,
+    },
+
+    pharmacyShare: {
+      type: Number,
+      default: 0,
+    },
+
+    paymentMethod: {
+      type: String,
+      enum: ["cash", "card", "online"],
+      default: "cash",
+    },
+
+    paymentStatus: {
       type: String,
       enum: ["paid", "unpaid"],
-      default: "unpaid",
+      default: "paid",
     },
 
-    date: {
-      type: Date,
-      default: Date.now,
+    receiptNumber: {
+      type: String,
+      unique: true,
     },
   },
   {

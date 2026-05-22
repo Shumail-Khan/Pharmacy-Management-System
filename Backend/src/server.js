@@ -16,6 +16,9 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.send("Pharmacy Management API Running");
 });
+app.use("/api/auth", require("./routes/authRoutes"));
+app.use("/api/patients", require("./routes/patientRoutes"));
+
 
 const PORT = process.env.PORT || 5000;
 

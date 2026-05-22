@@ -14,12 +14,12 @@ const appointmentSchema = new mongoose.Schema(
       required: true,
     },
 
-    date: {
-      type: String,
+    appointmentDate: {
+      type: Date,
       required: true,
     },
 
-    time: {
+    appointmentTime: {
       type: String,
       required: true,
     },
@@ -31,8 +31,28 @@ const appointmentSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "completed", "cancelled"],
-      default: "pending",
+      enum: [
+        "scheduled",
+        "waiting",
+        "in-progress",
+        "completed",
+        "cancelled",
+      ],
+      default: "scheduled",
+    },
+
+    consultationFee: {
+      type: Number,
+      default: 0,
+    },
+
+    notes: {
+      type: String,
+    },
+
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
   },
   {
