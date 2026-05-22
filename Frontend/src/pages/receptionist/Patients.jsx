@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import Sidebar from "../../components/layout/Sidebar";
 import Navbar from "../../components/layout/Navbar";
-import { getPatients, searchPatient, deletePatient } from "../../api/patientApi";
-import { getDoctors } from "../../api/doctorApi";
 import { setPatients, setSearchResults } from "../../features/patients/patientSlice";
-import { Search, Trash2, UserPlus, Printer, Phone, User, Ticket, Stethoscope, DollarSign, X, Calendar, Clock } from "lucide-react";
+import { Search, Trash2, UserPlus, Phone, User, Calendar, MapPin, IdCard, Activity, X, Clock, Stethoscope, Award, FileText, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Patients = () => {
@@ -15,621 +13,150 @@ const Patients = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedPatient, setSelectedPatient] = useState(null);
-  const [showTokenModal, setShowTokenModal] = useState(false);
-  const [doctors, setDoctors] = useState([]);
-  const [tokenDetails, setTokenDetails] = useState({
-    doctorName: "",
-    doctorId: "",
-    paymentAmount: "",
-    tokenNumber: "",
-    appointmentDate: "",
-    appointmentTime: "",
-  });
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [patientAppointments, setPatientAppointments] = useState([]);
 
   useEffect(() => {
-    fetchPatients();
-    fetchDoctors();
+    loadPatients();
   }, []);
 
-  const fetchPatients = async () => {
-    try {
-      const data = await getPatients();
-      dispatch(setPatients(data));
-    } catch (error) {
-      console.error("Error fetching patients:", error);
-    } finally {
-      setLoading(false);
+  const loadPatients = () => {
+    const storedPatients = localStorage.getItem('mock_patients');
+    if (storedPatients) {
+      dispatch(setPatients(JSON.parse(storedPatients)));
+    }
+    setLoading(false);
+  };
+
+  const loadAppointmentsForPatient = (patientId) => {
+    const storedAppointments = localStorage.getItem('mock_appointments');
+    if (storedAppointments) {
+      const allAppointments = JSON.parse(storedAppointments);
+      const patientApps = allAppointments.filter(a => a.patientId === patientId);
+      setPatientAppointments(patientApps);
     }
   };
 
-  const fetchDoctors = async () => {
-    try {
-      const data = await getDoctors();
-      setDoctors(data);
-    } catch (error) {
-      console.error("Error fetching doctors:", error);
-    }
-  };
-
-  const handleSearch = async () => {
+  const handleSearch = () => {
     if (searchTerm.trim()) {
-      try {
-        const results = await searchPatient(searchTerm);
-        dispatch(setSearchResults(results));
-      } catch (error) {
-        console.error("Search error:", error);
-      }
+      const results = patients.filter(p => 
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.mobile.includes(searchTerm) ||
+        (p.cnic && p.cnic.includes(searchTerm))
+      );
+      dispatch(setSearchResults(results));
     } else {
       dispatch(setSearchResults([]));
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this patient?")) {
-      try {
-        await deletePatient(id);
-        fetchPatients();
-      } catch (error) {
-        console.error("Delete error:", error);
+  const handleDelete = (id, e) => {
+    e.stopPropagation();
+    if (window.confirm("Delete this patient? This will also delete all their appointments.")) {
+      const storedPatients = localStorage.getItem('mock_patients');
+      const storedAppointments = localStorage.getItem('mock_appointments');
+      
+      if (storedPatients) {
+        const allPatients = JSON.parse(storedPatients);
+        const updatedPatients = allPatients.filter(p => p._id !== id);
+        localStorage.setItem('mock_patients', JSON.stringify(updatedPatients));
+        dispatch(setPatients(updatedPatients));
       }
+      
+      if (storedAppointments) {
+        const allAppointments = JSON.parse(storedAppointments);
+        const updatedAppointments = allAppointments.filter(a => a.patientId !== id);
+        localStorage.setItem('mock_appointments', JSON.stringify(updatedAppointments));
+      }
+      
+      alert("Patient deleted successfully!");
     }
   };
 
-  const generateTokenNumber = () => {
-    return Math.floor(Math.random() * 900) + 100;
-  };
-
-  const getTodayDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
-
-  const getCurrentTime = () => {
-    const now = new Date();
-    return now.toTimeString().slice(0, 5);
-  };
-
-  const handleOpenTokenModal = (patient) => {
+  const handleViewDetails = (patient) => {
     setSelectedPatient(patient);
-    setTokenDetails({
-      doctorName: "",
-      doctorId: "",
-      paymentAmount: "",
-      tokenNumber: generateTokenNumber(),
-      appointmentDate: getTodayDate(),
-      appointmentTime: getCurrentTime(),
-    });
-    setShowTokenModal(true);
+    loadAppointmentsForPatient(patient._id);
+    setShowDetailsModal(true);
   };
 
-  const handleDoctorSelect = (doctorId) => {
-    const selectedDoctor = doctors.find(d => d._id === doctorId);
-    if (selectedDoctor) {
-      setTokenDetails({
-        ...tokenDetails,
-        doctorId: doctorId,
-        doctorName: selectedDoctor.name,
-      });
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "waiting": return "bg-yellow-100 text-yellow-700";
+      case "completed": return "bg-green-100 text-green-700";
+      case "cancelled": return "bg-red-100 text-red-700";
+      default: return "bg-gray-100 text-gray-700";
     }
-  };
-
-  const handlePrintToken = () => {
-    if (!tokenDetails.doctorName) {
-      alert("Please select a doctor");
-      return;
-    }
-    if (!tokenDetails.paymentAmount || tokenDetails.paymentAmount <= 0) {
-      alert("Please enter valid payment amount");
-      return;
-    }
-
-    const selectedDoctor = doctors.find(d => d._id === tokenDetails.doctorId);
-    const today = new Date();
-    
-    const printWindow = window.open("", "_blank");
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Appointment Token - ${selectedPatient.name}</title>
-          <style>
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            body {
-              font-family: 'Segoe UI', Arial, sans-serif;
-              padding: 20px;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              min-height: 100vh;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-            }
-            .token-card {
-              max-width: 450px;
-              margin: 0 auto;
-              background: white;
-              border-radius: 20px;
-              box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-              overflow: hidden;
-              animation: slideIn 0.5s ease-out;
-            }
-            @keyframes slideIn {
-              from {
-                transform: translateY(-50px);
-                opacity: 0;
-              }
-              to {
-                transform: translateY(0);
-                opacity: 1;
-              }
-            }
-            .token-header {
-              background: linear-gradient(135deg, #1e3a8a, #3b82f6);
-              color: white;
-              padding: 25px;
-              text-align: center;
-            }
-            .token-header h1 {
-              font-size: 28px;
-              margin-bottom: 5px;
-            }
-            .token-header p {
-              font-size: 12px;
-              opacity: 0.9;
-            }
-            .token-body {
-              padding: 30px;
-            }
-            .token-label {
-              text-align: center;
-              font-size: 12px;
-              color: #6b7280;
-              letter-spacing: 3px;
-              text-transform: uppercase;
-              margin-bottom: 10px;
-            }
-            .token-number {
-              text-align: center;
-              font-size: 72px;
-              font-weight: bold;
-              color: #d97706;
-              margin: 15px 0;
-              font-family: 'Courier New', monospace;
-              letter-spacing: 5px;
-              text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-            }
-            .divider {
-              height: 2px;
-              background: linear-gradient(to right, transparent, #e5e7eb, transparent);
-              margin: 20px 0;
-            }
-            .info-section {
-              margin: 20px 0;
-            }
-            .info-row {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 15px;
-              padding: 8px 0;
-              border-bottom: 1px dashed #f3f4f6;
-            }
-            .info-label {
-              font-weight: 600;
-              color: #4b5563;
-              font-size: 13px;
-            }
-            .info-value {
-              color: #1f2937;
-              font-size: 14px;
-              font-weight: 500;
-            }
-            .doctor-info {
-              background: #eff6ff;
-              padding: 15px;
-              border-radius: 10px;
-              margin: 15px 0;
-            }
-            .doctor-info .info-row {
-              border-bottom: none;
-            }
-            .payment-box {
-              background: #f0fdf4;
-              padding: 15px;
-              border-radius: 10px;
-              margin: 15px 0;
-              text-align: center;
-            }
-            .payment-box .label {
-              font-size: 12px;
-              color: #166534;
-            }
-            .payment-box .amount {
-              font-size: 28px;
-              font-weight: bold;
-              color: #166534;
-            }
-            .footer {
-              background: #f9fafb;
-              padding: 20px;
-              text-align: center;
-              font-size: 11px;
-              color: #6b7280;
-              border-top: 1px solid #e5e7eb;
-            }
-            .instruction {
-              background: #fef3c7;
-              padding: 10px;
-              border-radius: 8px;
-              margin-top: 15px;
-              text-align: center;
-            }
-            .instruction p {
-              font-size: 11px;
-              color: #92400e;
-            }
-            @media print {
-              body {
-                background: white;
-                padding: 0;
-              }
-              .token-card {
-                box-shadow: none;
-                margin: 0;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="token-card">
-            <div class="token-header">
-              <h1>🏥 Pharmacy PMS</h1>
-              <p>Appointment Token Slip</p>
-            </div>
-            <div class="token-body">
-              <div class="token-label">YOUR TOKEN NUMBER</div>
-              <div class="token-number">#${tokenDetails.tokenNumber}</div>
-              
-              <div class="divider"></div>
-              
-              <div class="info-section">
-                <div class="info-row">
-                  <span class="info-label">Patient Name:</span>
-                  <span class="info-value">${selectedPatient.name}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Mobile Number:</span>
-                  <span class="info-value">${selectedPatient.mobile}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Date:</span>
-                  <span class="info-value">${new Date(tokenDetails.appointmentDate).toLocaleDateString('en-PK')}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Time:</span>
-                  <span class="info-value">${tokenDetails.appointmentTime}</span>
-                </div>
-              </div>
-
-              <div class="doctor-info">
-                <div class="info-row">
-                  <span class="info-label">👨‍⚕️ Doctor Name:</span>
-                  <span class="info-value">Dr. ${tokenDetails.doctorName}</span>
-                </div>
-                ${selectedDoctor ? `
-                <div class="info-row" style="margin-top: 8px;">
-                  <span class="info-label">📋 Specialization:</span>
-                  <span class="info-value">${selectedDoctor.specialization}</span>
-                </div>
-                <div class="info-row" style="margin-top: 4px;">
-                  <span class="info-label">💰 Consultation Fee:</span>
-                  <span class="info-value">Rs. ${selectedDoctor.fee}</span>
-                </div>
-                ` : ''}
-              </div>
-
-              <div class="payment-box">
-                <div class="label">💰 Payment Received</div>
-                <div class="amount">Rs. ${parseInt(tokenDetails.paymentAmount).toLocaleString()}</div>
-              </div>
-
-              <div class="instruction">
-                <p>⚠️ Please wait for your turn</p>
-                <p>Keep this token for consultation</p>
-              </div>
-            </div>
-            <div class="footer">
-              <p>Generated on: ${today.toLocaleString()}</p>
-              <p style="margin-top: 5px;">Thank you for choosing us!</p>
-            </div>
-          </div>
-          <script>
-            window.print();
-            setTimeout(() => { window.close(); }, 500);
-          </script>
-        </body>
-      </html>
-    `);
-    
-    setShowTokenModal(false);
-    alert(`✅ Token #${tokenDetails.tokenNumber} printed successfully!\n\n📋 Patient: ${selectedPatient.name}\n👨‍⚕️ Doctor: Dr. ${tokenDetails.doctorName}\n💰 Amount: Rs. ${parseInt(tokenDetails.paymentAmount).toLocaleString()}\n🎫 Token: #${tokenDetails.tokenNumber}`);
   };
 
   const displayedPatients = searchResults.length > 0 ? searchResults : patients;
+  const totalPatients = patients.length;
+  const newThisMonth = patients.filter(p => new Date(p.createdAt).getMonth() === new Date().getMonth()).length;
 
   return (
     <div className="flex bg-gray-50 min-h-screen">
       <Sidebar />
       <div className="flex-1 ml-64">
         <Navbar />
-        
         <div className="p-8">
           <div className="flex justify-between items-center mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">Patient Management</h2>
-              <p className="text-sm text-gray-500 mt-1">Manage patient records and generate tokens</p>
-            </div>
-            <button
-              onClick={() => navigate("/add-patient")}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition shadow-md"
-            >
-              <UserPlus className="w-4 h-4" />
-              New Patient
-            </button>
+            <div><h2 className="text-2xl font-bold text-gray-800">Patient Records</h2><p className="text-sm text-gray-500">Click on any patient to view complete details</p></div>
+            <button onClick={() => navigate("/add-patient")} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-md"><UserPlus className="w-4 h-4" /> New Patient</button>
           </div>
 
-          {/* Search Bar */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 text-white"><p className="text-sm opacity-90">Total Patients</p><p className="text-2xl font-bold">{totalPatients}</p></div>
+            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-4 text-white"><p className="text-sm opacity-90">New This Month</p><p className="text-2xl font-bold">{newThisMonth}</p></div>
+          </div>
+
           <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-            <div className="flex gap-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search by name or mobile number..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <button
-                onClick={handleSearch}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-              >
-                Search
-              </button>
-            </div>
+            <div className="flex gap-3"><div className="flex-1 relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" /><input type="text" placeholder="Search by name, mobile number..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onKeyPress={(e) => e.key === "Enter" && handleSearch()} className="w-full pl-10 pr-4 py-2 border rounded-lg" /></div><button onClick={handleSearch} className="px-6 py-2 bg-blue-600 text-white rounded-lg">Search</button></div>
           </div>
 
-          {/* Patients Table */}
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobile Number</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Visit</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {loading ? (
-                    <tr>
-                      <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
-                        <div className="flex justify-center">
-                          <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : displayedPatients.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
-                        No patients found
-                      </td>
-                    </tr>
-                  ) : (
-                    displayedPatients.map((patient) => (
-                      <tr key={patient._id} className="hover:bg-gray-50 transition">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                              <User className="w-5 h-5 text-blue-600" />
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">{patient.name}</div>
-                              <div className="text-xs text-gray-500">ID: {patient._id?.slice(-6)}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <Phone className="w-4 h-4 text-gray-400" />
-                            <span className="text-gray-600">{patient.mobile}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-gray-600">
-                            {new Date(patient.createdAt).toLocaleDateString()}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleOpenTokenModal(patient)}
-                              className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition text-sm"
-                            >
-                              <Ticket className="w-4 h-4" />
-                              Generate Token
-                            </button>
-                            <button
-                              onClick={() => handleDelete(patient._id)}
-                              className="text-red-600 hover:text-red-800 transition p-1.5"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+          {loading ? (<div className="flex justify-center h-64"><div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>) : displayedPatients.length === 0 ? (<div className="text-center py-12 bg-white rounded-xl"><User className="w-16 h-16 text-gray-300 mx-auto mb-3" /><p className="text-gray-500">No patients found</p></div>) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {displayedPatients.map((patient) => (
+                <div key={patient._id} onClick={() => handleViewDetails(patient)} className="bg-white rounded-xl shadow-sm hover:shadow-xl transition-all cursor-pointer group">
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center"><User className="w-8 h-8 text-white" /></div>
+                      <button onClick={(e) => handleDelete(patient._id, e)} className="bg-red-50 hover:bg-red-100 text-red-600 p-2 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-800 mb-1">{patient.name}</h3>
+                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-3"><Phone className="w-3 h-3" /><span>{patient.mobile}</span></div>
+                    <div className="flex items-center justify-between pt-3 border-t"><div className="flex items-center gap-1 text-xs text-gray-400"><Calendar className="w-3 h-3" /><span>ID: {patient._id?.slice(-6)}</span></div><div className="flex items-center gap-1 text-blue-600 text-sm font-medium"><span>View Details</span><ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition" /></div></div>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white">
-              <p className="text-sm opacity-90">Total Patients</p>
-              <p className="text-2xl font-bold">{patients.length}</p>
-            </div>
-            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-4 text-white">
-              <p className="text-sm opacity-90">New This Month</p>
-              <p className="text-2xl font-bold">
-                {patients.filter(p => new Date(p.createdAt).getMonth() === new Date().getMonth()).length}
-              </p>
-            </div>
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-white">
-              <p className="text-sm opacity-90">Today's Patients</p>
-              <p className="text-2xl font-bold">
-                {patients.filter(p => new Date(p.createdAt).toDateString() === new Date().toDateString()).length}
-              </p>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Token Generation Modal */}
-      {showTokenModal && selectedPatient && (
+      {showDetailsModal && selectedPatient && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 flex justify-between items-center sticky top-0">
-              <div>
-                <h3 className="text-xl font-bold text-white">Generate Token</h3>
-                <p className="text-green-100 text-sm">Enter appointment details</p>
-              </div>
-              <button
-                onClick={() => setShowTokenModal(false)}
-                className="text-white hover:text-gray-200 transition"
-              >
-                <X className="w-6 h-6" />
-              </button>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5 sticky top-0 flex justify-between items-center">
+              <div className="flex items-center gap-3"><div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center"><User className="w-6 h-6 text-white" /></div><div><h3 className="text-xl font-bold text-white">{selectedPatient.name}</h3><p className="text-blue-100 text-sm">Patient ID: {selectedPatient._id?.slice(-8)}</p></div></div>
+              <button onClick={() => setShowDetailsModal(false)} className="text-white hover:bg-white/20 rounded-lg p-2"><X className="w-6 h-6" /></button>
             </div>
-            
             <div className="p-6">
-              {/* Patient Info Summary */}
-              <div className="bg-blue-50 p-4 rounded-lg mb-6">
-                <p className="text-sm text-gray-600">Patient Details</p>
-                <p className="font-semibold text-gray-800 text-lg">{selectedPatient.name}</p>
-                <p className="text-sm text-gray-600">{selectedPatient.mobile}</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <div className="bg-blue-50 rounded-lg p-3 text-center"><Phone className="w-4 h-4 text-blue-600 mx-auto mb-1" /><p className="text-xs text-gray-500">Mobile</p><p className="text-sm font-semibold">{selectedPatient.mobile}</p></div>
+                <div className="bg-green-50 rounded-lg p-3 text-center"><Activity className="w-4 h-4 text-green-600 mx-auto mb-1" /><p className="text-xs text-gray-500">Age/Gender</p><p className="text-sm font-semibold">{selectedPatient.age} yrs / {selectedPatient.gender}</p></div>
+                <div className="bg-purple-50 rounded-lg p-3 text-center"><Calendar className="w-4 h-4 text-purple-600 mx-auto mb-1" /><p className="text-xs text-gray-500">Registered</p><p className="text-sm font-semibold">{new Date(selectedPatient.createdAt).toLocaleDateString()}</p></div>
+                <div className="bg-orange-50 rounded-lg p-3 text-center"><FileText className="w-4 h-4 text-orange-600 mx-auto mb-1" /><p className="text-xs text-gray-500">Total Visits</p><p className="text-sm font-semibold">{patientAppointments.length}</p></div>
               </div>
 
-              {/* Token Number Display */}
-              <div className="bg-orange-50 p-4 rounded-lg mb-6 text-center">
-                <p className="text-sm text-orange-600">Token Number</p>
-                <p className="text-4xl font-bold text-orange-600 font-mono">#{tokenDetails.tokenNumber}</p>
+              <div className="mb-8"><h4 className="text-lg font-semibold mb-4 flex items-center gap-2"><div className="w-1 h-6 bg-blue-600 rounded"></div>Personal Information</h4><div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-5 rounded-xl"><div className="flex items-start gap-3"><IdCard className="w-4 h-4 text-gray-400 mt-1" /><div><p className="text-xs text-gray-500">CNIC</p><p className="font-medium">{selectedPatient.cnic || "Not provided"}</p></div></div><div className="flex items-start gap-3"><MapPin className="w-4 h-4 text-gray-400 mt-1" /><div><p className="text-xs text-gray-500">Address</p><p className="font-medium">{selectedPatient.address || "Not provided"}</p></div></div></div></div>
+
+              <div><h4 className="text-lg font-semibold mb-4 flex items-center gap-2"><div className="w-1 h-6 bg-blue-600 rounded"></div>Appointment History</h4>
+                {patientAppointments.length === 0 ? (<div className="text-center py-12 bg-gray-50 rounded-xl"><Stethoscope className="w-12 h-12 text-gray-300 mx-auto mb-3" /><p className="text-gray-500">No appointment history</p></div>) : (
+                  <div className="space-y-3">{patientAppointments.map((app) => (<div key={app._id} className="bg-gray-50 p-4 rounded-xl"><div className="flex justify-between items-start mb-3"><div className="flex items-center gap-3"><div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center"><span className="text-white font-bold text-lg">#{app.tokenNumber}</span></div><div><p className="font-semibold">Dr. {app.doctorName}</p><p className="text-sm text-gray-500">{app.doctorSpecialization}</p></div></div><span className={`text-xs px-3 py-1 rounded-full ${getStatusColor(app.status)}`}>{app.status}</span></div><div className="grid grid-cols-4 gap-4 text-sm ml-14"><div><p className="text-gray-500 text-xs">Date</p><p className="font-medium">{new Date(app.date).toLocaleDateString()}</p></div><div><p className="text-gray-500 text-xs">Time</p><p className="font-medium">{app.time}</p></div><div><p className="text-gray-500 text-xs">Fee</p><p className="font-medium text-green-600">Rs. {app.doctorFee}</p></div><div><p className="text-gray-500 text-xs">Paid</p><p className="font-medium text-green-600">Rs. {app.paymentAmount || app.doctorFee}</p></div></div></div>))}</div>)}
               </div>
 
-              {/* Doctor Selection */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Stethoscope className="w-4 h-4 inline mr-1" />
-                  Select Doctor <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={tokenDetails.doctorId}
-                  onChange={(e) => handleDoctorSelect(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  required
-                >
-                  <option value="">Choose a doctor</option>
-                  {doctors.map((doctor) => (
-                    <option key={doctor._id} value={doctor._id}>
-                      Dr. {doctor.name} - {doctor.specialization} (Fee: Rs.{doctor.fee})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {patientAppointments.length > 0 && (<div className="mt-6 p-5 bg-gradient-to-r from-blue-50 to-green-50 rounded-xl"><h5 className="font-semibold mb-3 flex items-center gap-2"><Award className="w-4 h-4 text-blue-600" /> Summary</h5><div className="grid grid-cols-4 gap-4 text-center"><div><p className="text-2xl font-bold">{patientAppointments.length}</p><p className="text-xs text-gray-500">Visits</p></div><div><p className="text-2xl font-bold text-green-600">{patientAppointments.filter(a => a.status === "completed").length}</p><p className="text-xs text-gray-500">Completed</p></div><div><p className="text-2xl font-bold text-yellow-600">{patientAppointments.filter(a => a.status === "waiting").length}</p><p className="text-xs text-gray-500">Pending</p></div><div><p className="text-2xl font-bold text-green-600">Rs. {patientAppointments.reduce((sum, a) => sum + (a.paymentAmount || a.doctorFee), 0)}</p><p className="text-xs text-gray-500">Total Paid</p></div></div></div>)}
 
-              {/* Appointment Date */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Calendar className="w-4 h-4 inline mr-1" />
-                  Appointment Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={tokenDetails.appointmentDate}
-                  onChange={(e) => setTokenDetails({ ...tokenDetails, appointmentDate: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  required
-                />
-              </div>
-
-              {/* Appointment Time */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Clock className="w-4 h-4 inline mr-1" />
-                  Appointment Time <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="time"
-                  value={tokenDetails.appointmentTime}
-                  onChange={(e) => setTokenDetails({ ...tokenDetails, appointmentTime: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  required
-                />
-              </div>
-
-              {/* Payment Amount */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <DollarSign className="w-4 h-4 inline mr-1" />
-                  Payment Amount (Rs.) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  value={tokenDetails.paymentAmount}
-                  onChange={(e) => setTokenDetails({ ...tokenDetails, paymentAmount: e.target.value })}
-                  placeholder="Enter consultation fee"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  required
-                />
-              </div>
-
-              {/* Token Summary */}
-              {(tokenDetails.doctorName || tokenDetails.paymentAmount) && (
-                <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                  <p className="font-semibold text-gray-700 mb-2">📋 Token Summary:</p>
-                  <div className="space-y-1 text-sm">
-                    <p>👨‍⚕️ Doctor: Dr. {tokenDetails.doctorName || "Not selected"}</p>
-                    <p>📅 Date: {tokenDetails.appointmentDate || "Not set"}</p>
-                    <p>⏰ Time: {tokenDetails.appointmentTime || "Not set"}</p>
-                    <p>💰 Amount: Rs. {parseInt(tokenDetails.paymentAmount).toLocaleString() || "0"}</p>
-                    <p>🎫 Token: #{tokenDetails.tokenNumber}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={handlePrintToken}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg transition flex items-center justify-center gap-2"
-                >
-                  <Printer className="w-4 h-4" />
-                  Print Token & Give to Patient
-                </button>
-                <button
-                  onClick={() => setShowTokenModal(false)}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2.5 rounded-lg transition"
-                >
-                  Cancel
-                </button>
-              </div>
+              <button onClick={() => setShowDetailsModal(false)} className="w-full mt-6 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium">Close</button>
             </div>
           </div>
         </div>

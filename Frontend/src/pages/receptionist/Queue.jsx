@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSelector, useDispatch } from "react-redux";
+import { useDispatch } from "react-redux";
 import Sidebar from "../../components/layout/Sidebar";
 import Navbar from "../../components/layout/Navbar";
 import { setTodayAppointments } from "../../features/appointments/appointmentSlice";
@@ -7,153 +7,81 @@ import { Clock, User, Stethoscope, CheckCircle, SkipForward, Users, Activity, Be
 
 const Queue = () => {
   const dispatch = useDispatch();
-  const { todayAppointments } = useSelector((state) => state.appointments);
   const [currentToken, setCurrentToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastCalled, setLastCalled] = useState(null);
   const [showNotification, setShowNotification] = useState(false);
-
-  // Mock data for today's appointments
-  const [mockAppointments, setMockAppointments] = useState([
-    {
-      _id: "q1",
-      patientId: "p1",
-      patientName: "John Doe",
-      patientMobile: "0300-1234567",
-      doctorId: "d1",
-      doctorName: "Ahmed Khan",
-      doctorSpecialization: "Cardiologist",
-      tokenNumber: 101,
-      status: "waiting",
-      paymentAmount: 1000,
-      time: "09:00 AM",
-      arrivedAt: "09:15 AM",
-    },
-    {
-      _id: "q2",
-      patientId: "p2",
-      patientName: "Jane Smith",
-      patientMobile: "0300-7654321",
-      doctorId: "d2",
-      doctorName: "Fatima Ali",
-      doctorSpecialization: "Dermatologist",
-      tokenNumber: 102,
-      status: "waiting",
-      paymentAmount: 800,
-      time: "09:30 AM",
-      arrivedAt: "09:25 AM",
-    },
-    {
-      _id: "q3",
-      patientId: "p3",
-      patientName: "Mike Johnson",
-      patientMobile: "0300-9876543",
-      doctorId: "d3",
-      doctorName: "Usman Riaz",
-      doctorSpecialization: "General Physician",
-      tokenNumber: 103,
-      status: "completed",
-      paymentAmount: 600,
-      time: "10:00 AM",
-      arrivedAt: "09:50 AM",
-      completedAt: "10:25 AM",
-    },
-    {
-      _id: "q4",
-      patientId: "p4",
-      patientName: "Sarah Wilson",
-      patientMobile: "0300-5555555",
-      doctorId: "d1",
-      doctorName: "Ahmed Khan",
-      doctorSpecialization: "Cardiologist",
-      tokenNumber: 104,
-      status: "waiting",
-      paymentAmount: 1000,
-      time: "10:30 AM",
-      arrivedAt: "10:20 AM",
-    },
-    {
-      _id: "q5",
-      patientId: "p5",
-      patientName: "David Brown",
-      patientMobile: "0300-4444444",
-      doctorId: "d4",
-      doctorName: "Ayesha Malik",
-      doctorSpecialization: "Pediatrician",
-      tokenNumber: 105,
-      status: "waiting",
-      paymentAmount: 700,
-      time: "11:00 AM",
-      arrivedAt: "10:55 AM",
-    },
-  ]);
+  const [allAppointments, setAllAppointments] = useState([]);
 
   useEffect(() => {
-    fetchQueue();
+    loadQueueData();
     
-    // Auto refresh every 10 seconds if enabled
     let interval;
     if (autoRefresh) {
-      interval = setInterval(() => {
-        fetchQueue();
-      }, 10000);
+      interval = setInterval(loadQueueData, 10000);
     }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    return () => { if (interval) clearInterval(interval); };
   }, [autoRefresh]);
 
-  const fetchQueue = () => {
-    // Simulate API call with mock data
-    setTimeout(() => {
-      dispatch(setTodayAppointments(mockAppointments));
-      const waitingAppointments = mockAppointments.filter(a => a.status === "waiting");
-      if (waitingAppointments.length > 0 && !currentToken) {
-        setCurrentToken(waitingAppointments[0]);
+  const loadQueueData = () => {
+    // Load ALL appointments from localStorage, not just today's
+    const storedAppointments = localStorage.getItem('mock_appointments');
+    
+    if (storedAppointments) {
+      const allApps = JSON.parse(storedAppointments);
+      setAllAppointments(allApps);
+      dispatch(setTodayAppointments(allApps));
+      
+      // Get waiting appointments (all status="waiting" regardless of date)
+      const waitingApps = allApps.filter(a => a.status === "waiting").sort((a, b) => a.tokenNumber - b.tokenNumber);
+      
+      if (waitingApps.length > 0 && !currentToken) {
+        setCurrentToken(waitingApps[0]);
       }
-      setLoading(false);
-    }, 500);
+    } else {
+      // Initialize with empty array if no data
+      setAllAppointments([]);
+      dispatch(setTodayAppointments([]));
+    }
+    setLoading(false);
   };
 
   const playSound = () => {
-    // Simple beep using Web Audio API
     try {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
-      
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
-      
       oscillator.frequency.value = 800;
       gainNode.gain.value = 0.5;
-      
       oscillator.start();
       gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 1);
       oscillator.stop(audioContext.currentTime + 1);
-    } catch (error) {
-      console.log("Sound not supported");
+    } catch (error) { 
+      console.log("Sound not supported"); 
     }
   };
 
   const handleCallNext = () => {
-    const waitingAppointments = mockAppointments.filter(a => a.status === "waiting");
+    // Get waiting appointments (status = "waiting")
+    const waitingAppointments = allAppointments.filter(a => a.status === "waiting").sort((a, b) => a.tokenNumber - b.tokenNumber);
     
     if (waitingAppointments.length > 0) {
-      // Sort by token number
-      waitingAppointments.sort((a, b) => a.tokenNumber - b.tokenNumber);
       const nextPatient = waitingAppointments[0];
       
-      // Update the appointment status
-      const updatedAppointments = mockAppointments.map(app => 
+      // Update the appointment status to completed
+      const updatedAppointments = allAppointments.map(app => 
         app._id === nextPatient._id 
           ? { ...app, status: "completed", completedAt: new Date().toLocaleTimeString() }
           : app
       );
       
-      setMockAppointments(updatedAppointments);
+      setAllAppointments(updatedAppointments);
+      
+      // Update localStorage
+      localStorage.setItem('mock_appointments', JSON.stringify(updatedAppointments));
       dispatch(setTodayAppointments(updatedAppointments));
       
       // Update current token to next waiting patient
@@ -164,31 +92,29 @@ const Queue = () => {
       // Show notification
       setShowNotification(true);
       playSound();
-      
-      // Hide notification after 5 seconds
       setTimeout(() => setShowNotification(false), 5000);
       
       // Announce with speech synthesis
       if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(`Token number ${nextPatient.tokenNumber}, ${nextPatient.patientName}, please proceed to Doctor ${nextPatient.doctorName}`);
-        utterance.lang = 'en-US';
         window.speechSynthesis.speak(utterance);
       }
       
       alert(`🔔 Calling Next Patient!\n\nToken #${nextPatient.tokenNumber}\nPatient: ${nextPatient.patientName}\nDoctor: Dr. ${nextPatient.doctorName}\n\nPlease proceed to the consultation room.`);
     } else {
-      alert("✅ No patients waiting in queue. All patients have been served!");
+      alert("✅ No patients waiting in queue! All patients have been served.");
     }
   };
 
   const handleResetQueue = () => {
     if (window.confirm("Are you sure you want to reset the queue? This will mark all waiting patients as completed.")) {
-      const updatedAppointments = mockAppointments.map(app => 
+      const updatedAppointments = allAppointments.map(app => 
         app.status === "waiting" 
           ? { ...app, status: "completed", completedAt: new Date().toLocaleTimeString() }
           : app
       );
-      setMockAppointments(updatedAppointments);
+      setAllAppointments(updatedAppointments);
+      localStorage.setItem('mock_appointments', JSON.stringify(updatedAppointments));
       dispatch(setTodayAppointments(updatedAppointments));
       setCurrentToken(null);
       setLastCalled(null);
@@ -198,12 +124,13 @@ const Queue = () => {
 
   const handleReopenPatient = (patientId) => {
     if (window.confirm("Reopen this patient? They will be added back to the waiting queue.")) {
-      const updatedAppointments = mockAppointments.map(app => 
+      const updatedAppointments = allAppointments.map(app => 
         app._id === patientId 
           ? { ...app, status: "waiting", completedAt: null }
           : app
       );
-      setMockAppointments(updatedAppointments);
+      setAllAppointments(updatedAppointments);
+      localStorage.setItem('mock_appointments', JSON.stringify(updatedAppointments));
       dispatch(setTodayAppointments(updatedAppointments));
       
       // Update current token if needed
@@ -216,15 +143,16 @@ const Queue = () => {
     }
   };
 
-  const waitingPatients = mockAppointments.filter(a => a.status === "waiting").sort((a, b) => a.tokenNumber - b.tokenNumber);
-  const completedPatients = mockAppointments.filter(a => a.status === "completed").sort((a, b) => a.tokenNumber - b.tokenNumber);
+  // Get waiting patients (status = "waiting")
+  const waitingPatients = allAppointments.filter(a => a.status === "waiting").sort((a, b) => a.tokenNumber - b.tokenNumber);
+  // Get completed patients (status = "completed")
+  const completedPatients = allAppointments.filter(a => a.status === "completed").sort((a, b) => a.tokenNumber - b.tokenNumber);
   
-  const totalPatients = mockAppointments.length;
+  const totalPatients = allAppointments.length;
   const servedToday = completedPatients.length;
   const waitingCount = waitingPatients.length;
   const completionRate = totalPatients > 0 ? ((servedToday / totalPatients) * 100).toFixed(1) : 0;
 
-  // Auto-refresh status indicator
   const getEstimatedWaitTime = () => {
     if (waitingCount === 0) return "No waiting";
     const avgConsultTime = 15; // minutes per patient
@@ -268,7 +196,7 @@ const Queue = () => {
           {/* Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
             <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white">
-              <p className="text-sm opacity-90">Total Today</p>
+              <p className="text-sm opacity-90">Total Patients</p>
               <p className="text-2xl font-bold">{totalPatients}</p>
             </div>
             <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg p-4 text-white">
@@ -289,7 +217,7 @@ const Queue = () => {
             </div>
           </div>
 
-          {/* Current Token Display - Enhanced */}
+          {/* Current Token Display */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-8 mb-8 text-center relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-16 -mt-16"></div>
             <div className="absolute bottom-0 left-0 w-32 h-32 bg-white opacity-10 rounded-full -ml-16 -mb-16"></div>
@@ -332,7 +260,7 @@ const Queue = () => {
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Waiting Queue - Enhanced */}
+            {/* Waiting Queue */}
             <div className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
@@ -354,7 +282,7 @@ const Queue = () => {
                   <div className="text-center py-12">
                     <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-500">No patients in queue</p>
-                    <p className="text-sm text-gray-400">All patients have been served</p>
+                    <p className="text-sm text-gray-400">Add new patients from the Patients page</p>
                   </div>
                 ) : (
                   waitingPatients.map((patient, index) => (
@@ -375,7 +303,7 @@ const Queue = () => {
                         <div>
                           <p className="font-semibold text-gray-800 text-lg">{patient.patientName}</p>
                           <p className="text-sm text-gray-500">Dr. {patient.doctorName}</p>
-                          <p className="text-xs text-gray-400">Arrived: {patient.arrivedAt}</p>
+                          <p className="text-xs text-gray-400">Date: {new Date(patient.date).toLocaleDateString()} at {patient.time}</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -392,12 +320,12 @@ const Queue = () => {
               </div>
             </div>
 
-            {/* Completed Patients - Enhanced */}
+            {/* Completed Patients */}
             <div className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-green-600" />
-                  <h3 className="text-lg font-semibold text-gray-800">Completed Today</h3>
+                  <h3 className="text-lg font-semibold text-gray-800">Completed</h3>
                 </div>
                 <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium">
                   {completedPatients.length} Patients
@@ -449,7 +377,7 @@ const Queue = () => {
             </div>
           </div>
 
-          {/* Call Next Button - Enhanced */}
+          {/* Call Next Button */}
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
             <button
               onClick={handleCallNext}
@@ -491,8 +419,8 @@ const Queue = () => {
                 <ul className="text-xs text-gray-600 mt-1 space-y-1">
                   <li>• Click "Call Next Patient" to announce the next patient in queue</li>
                   <li>• The system will play an audio announcement and show notification</li>
-                  <li>• Completed patients move to the "Completed Today" section</li>
-                  <li>• Estimated wait time is calculated based on queue length</li>
+                  <li>• Completed patients move to the "Completed" section</li>
+                  <li>• You can reopen completed patients if needed</li>
                   <li>• Auto-refresh updates the queue every 10 seconds</li>
                 </ul>
               </div>
@@ -501,7 +429,6 @@ const Queue = () => {
         </div>
       </div>
 
-      {/* Add animation CSS */}
       <style jsx>{`
         @keyframes bounceIn {
           from {
