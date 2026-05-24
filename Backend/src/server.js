@@ -20,6 +20,9 @@ app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/patients", require("./routes/patientRoutes"));
 app.use("/api/appointments", require("./routes/appointmentRoutes"));
 app.use("/api/doctors", require("./routes/doctorRoutes"));
+app.use("/api/reception", require("./routes/receptionRoutes"));
+app.use("/api/billing", require("./routes/billingRoutes"));
+app.use("/api/reports", require("./routes/reportRoutes"));
 
 const PORT = process.env.PORT || 5000;
 

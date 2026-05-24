@@ -59,6 +59,11 @@ const appointmentSchema = new mongoose.Schema(
     cancelledAt: {
       type: Date,
     },
+    billingStatus: {
+      type: String,
+      enum: ["unpaid", "paid"],
+      default: "unpaid",
+    },
 
     completedAt: {
       type: Date,

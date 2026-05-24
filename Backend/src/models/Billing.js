@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 
 const billingSchema = new mongoose.Schema(
   {
+    billNumber: {
+      type: String,
+      unique: true,
+    },
+
     patientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Patient",
@@ -17,21 +22,28 @@ const billingSchema = new mongoose.Schema(
     appointmentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Appointment",
+      required: true,
     },
 
-    amount: {
+    tokenNumber: {
       type: Number,
       required: true,
     },
 
-    doctorShare: {
+    consultationFee: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    discount: {
       type: Number,
       default: 0,
     },
 
-    pharmacyShare: {
+    totalAmount: {
       type: Number,
-      default: 0,
+      required: true,
     },
 
     paymentMethod: {
@@ -42,13 +54,28 @@ const billingSchema = new mongoose.Schema(
 
     paymentStatus: {
       type: String,
-      enum: ["paid", "unpaid"],
+      enum: ["pending", "paid", "refunded"],
       default: "paid",
     },
 
-    receiptNumber: {
+    notes: {
       type: String,
-      unique: true,
+      trim: true,
+    },
+
+    paidAt: {
+      type: Date,
+      default: Date.now,
+    },
+
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    isPrinted: {
+      type: Boolean,
+      default: false,
     },
   },
   {
@@ -56,4 +83,18 @@ const billingSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Billing", billingSchema);
+
+// AUTO BILL NUMBER
+billingSchema.pre("save", async function () {
+  if (!this.billNumber) {
+    const count =
+      await mongoose.model("Billing")
+        .countDocuments();
+
+    this.billNumber =
+      `BILL-${String(count + 1).padStart(5, "0")}`;
+  }
+});
+
+module.exports =
+  mongoose.model("Billing", billingSchema);
