@@ -14,11 +14,13 @@ const Sidebar = () => {
   
   const menuItems = [
     { path: "/dashboard", name: "Dashboard", icon: LayoutDashboard },
-    { path: "/patients", name: "Patients", icon: Users },
+    { path: "/doctors", name: "Doctors", icon: Stethoscope },
     { path: "/add-patient", name: "Add Patient", icon: UserPlus },
+    { path: "/patients", name: "Patients", icon: Users },
     { path: "/appointments", name: "Appointments", icon: Calendar },
     { path: "/queue", name: "Queue", icon: Clock },
     { path: "/billing", name: "Billing", icon: Receipt },
+    
   ];
 
   return (
